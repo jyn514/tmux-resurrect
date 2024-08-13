@@ -11,10 +11,18 @@ exit_safely_if_empty_ppid() {
 }
 
 full_command() {
-	ps -ao "ppid,args" |
+	# normally the PID is a shell. return the child that has an associated controlling terminal.
+	child=$(ps -ao "ppid,args" |
 		sed "s/^ *//" |
 		grep "^${PANE_PID}" |
-		cut -d' ' -f2-
+		cut -d' ' -f2-)
+	if [ "$child" ]; then
+		printf %s "$child"
+		return
+	fi
+	# if this command was spawned with `tmux split-pane`, it has no parent shell.
+	# just return the args for the PID itself.
+	ps -p "${PANE_PID}" -o args | tail -n +2
 }
 
 main() {

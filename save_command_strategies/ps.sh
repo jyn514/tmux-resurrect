@@ -10,15 +10,25 @@ exit_safely_if_empty_ppid() {
 	fi
 }
 
+default_command() {
+	tmux_command=$(tmux show-option default-command)
+	tmux_shell=$(tmux show-option default-shell)
+	echo "${tmux_command:-${tmux_shell:-${SHELL:-/bin/sh}}}"
+}
+
 full_command() {
-	# normally the PID is a shell. return the child that has an associated controlling terminal.
-	child=$(ps -ao "ppid,args" |
-		sed "s/^ *//" |
-		grep "^${PANE_PID}" |
-		cut -d' ' -f2-)
-	if [ "$child" ]; then
-		printf %s "$child"
-		return
+	# get the absolute path and args of the running process
+	parent=$(ps -p "${PANE_PID}" -o args | tail -n +2)
+	if echo "$parent" | grep --quiet -E -- "-?$(basename "$(default_command)")"; then
+		# normally the PID is a shell. return the child that has an associated controlling terminal.
+		child=$(ps -ao "ppid,args" |
+			sed "s/^ *//" |
+			grep "^${PANE_PID}" |
+			cut -d' ' -f2-)
+		if [ "$child" ]; then
+			printf %s "$child"
+			return
+		fi
 	fi
 	# if this command was spawned with `tmux split-pane`, it has no parent shell.
 	# just return the args for the PID itself.
